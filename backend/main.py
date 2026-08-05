@@ -1,53 +1,102 @@
 import os
-from fastapi import FastAPI, UploadFile, File
-from ultralytics import YOLO
 import shutil
+from pathlib import Path
 
+from fastapi import FastAPI, UploadFile, File
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from ultralytics import YOLO
+
+# -----------------------------------
+# FastAPI
+# -----------------------------------
 app = FastAPI()
 
-# Load the trained model only once
-model = YOLO("runs/detect/runs/sentinel_ai/weights/best.pt")
+# -----------------------------------
+# Enable CORS
+# -----------------------------------
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],      # Allow Live Server, localhost, Render, etc.
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# -----------------------------------
+# Paths
+# -----------------------------------
+BASE_DIR = Path(__file__).resolve().parent.parent
+
+MODEL_PATH = BASE_DIR / "runs" / "detect" / "runs" / "sentinel_ai" / "weights" / "best.pt"
+
+UPLOAD_DIR = BASE_DIR / "uploads"
+RESULTS_DIR = BASE_DIR / "results"
+
+UPLOAD_DIR.mkdir(exist_ok=True)
+RESULTS_DIR.mkdir(exist_ok=True)
+
+# -----------------------------------
+# Load Model
+# -----------------------------------
+model = YOLO(str(MODEL_PATH))
+
+# -----------------------------------
+# Serve result images
+# -----------------------------------
+app.mount("/results", StaticFiles(directory=str(RESULTS_DIR)), name="results")
 
 
 @app.get("/")
 def home():
-    return {"message": "Sentinel AI Backend Running"}
+    return {
+        "message": "Sentinel AI Backend Running"
+    }
 
 
 @app.post("/predict")
 async def predict(file: UploadFile = File(...)):
 
-    image_path = file.filename
+    filename = file.filename
 
-    with open(image_path, "wb") as buffer:
+    upload_path = UPLOAD_DIR / filename
+
+    with open(upload_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
     results = model.predict(
-        source=image_path,
+        source=str(upload_path),
         conf=0.05,
-        save=True
+        imgsz=640,
+        iou=0.45,
+        augment=True,
+        save=True,
+        verbose=False
     )
 
     detections = []
-    output_image = ""
+
+    output_image_url = ""
 
     for result in results:
 
-        # Save output image path
-        output_image = os.path.join(
-            result.save_dir,
-            os.path.basename(image_path)
-        )
+        output_image = Path(result.save_dir) / filename
+
+        destination = RESULTS_DIR / filename
+
+        shutil.copy(output_image, destination)
+
+        output_image_url = f"http://127.0.0.1:8000/results/{filename}"
 
         for box in result.boxes:
-
             detections.append({
                 "class": model.names[int(box.cls[0])],
                 "confidence": round(float(box.conf[0]), 2)
             })
 
     return {
+        "success": True,
         "total_detections": len(detections),
         "detections": detections,
-        "output_image": output_image
+        "output_image": output_image_url
     }

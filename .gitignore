@@ -1,18 +1,15 @@
-# Python
 __pycache__/
 *.pyc
 
-# Dataset
 dataset/
+results/
+uploads/
 
-# Prediction outputs
-runs/
-
-# Ignore all model files
-*.pt
-
-# Test images
 *.jpg
 *.jpeg
 *.png
 *.webp
+
+yolo11n.pt
+
+runs/detect/runs/sentinel_ai/weights/last.pt
