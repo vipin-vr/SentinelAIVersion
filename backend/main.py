@@ -1,16 +1,19 @@
 import shutil
-from pathlib import Path
 import traceback
+from pathlib import Path
 
 from fastapi import FastAPI, UploadFile, File, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from ultralytics import YOLO
 
+# ----------------------------------------
+# FastAPI
+# ----------------------------------------
 app = FastAPI()
 
 # ----------------------------------------
-# Enable CORS
+# CORS
 # ----------------------------------------
 app.add_middleware(
     CORSMiddleware,
@@ -36,19 +39,22 @@ RESULTS_DIR.mkdir(exist_ok=True)
 # ----------------------------------------
 # Load YOLO Model
 # ----------------------------------------
+print("Loading model...")
+print("Model Path:", MODEL_PATH)
+
 model = YOLO(str(MODEL_PATH))
 
+print("Model Loaded Successfully!")
+
 # ----------------------------------------
-# Serve Result Images
+# Static Files
 # ----------------------------------------
 app.mount("/results", StaticFiles(directory=str(RESULTS_DIR)), name="results")
 
 
 @app.get("/")
 def home():
-    return {
-        "message": "Sentinel AI Backend Running"
-    }
+    return {"message": "Sentinel AI Backend Running"}
 
 
 @app.post("/predict")
@@ -62,9 +68,12 @@ async def predict(request: Request, file: UploadFile = File(...)):
         with open(upload_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
 
-        # -----------------------------
-        # Run Prediction
-        # -----------------------------
+        print("\n===============================")
+        print("Uploaded File :", upload_path)
+
+        # ----------------------------------------
+        # Prediction
+        # ----------------------------------------
         results = model.predict(
             source=str(upload_path),
             conf=0.25,
@@ -83,13 +92,27 @@ async def predict(request: Request, file: UploadFile = File(...)):
 
             output_image = Path(result.save_dir) / filename
 
-            if output_image.exists():
+            destination = RESULTS_DIR / filename
 
-                destination = RESULTS_DIR / filename
+            print("YOLO Save Directory :", result.save_dir)
+            print("YOLO Output Image   :", output_image)
+            print("Destination         :", destination)
+
+            print("Output Exists       :", output_image.exists())
+
+            if output_image.exists():
 
                 shutil.copy(output_image, destination)
 
-                output_image_url = str(request.base_url) + f"results/{filename}"
+                print("Image Copied Successfully!")
+
+            else:
+
+                print("ERROR: Output image not found!")
+
+            print("Destination Exists  :", destination.exists())
+
+            output_image_url = str(request.base_url) + f"results/{filename}"
 
             for box in result.boxes:
 
@@ -98,9 +121,11 @@ async def predict(request: Request, file: UploadFile = File(...)):
                     "confidence": round(float(box.conf[0]), 2)
                 })
 
-        # Delete uploaded image
         if upload_path.exists():
             upload_path.unlink()
+
+        print("Output URL:", output_image_url)
+        print("===============================\n")
 
         return {
             "success": True,
@@ -109,11 +134,11 @@ async def predict(request: Request, file: UploadFile = File(...)):
             "output_image": output_image_url
         }
 
-    except Exception as e:
+    except Exception:
 
         print(traceback.format_exc())
 
         return {
             "success": False,
-            "error": str(e)
+            "error": traceback.format_exc()
         }
