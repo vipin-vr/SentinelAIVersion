@@ -4,91 +4,76 @@ const outputImage = document.getElementById("outputImage");
 const predictBtn = document.getElementById("predictBtn");
 const result = document.getElementById("result");
 
-imageInput.addEventListener("change", function () {
+// Preview selected image
+imageInput.addEventListener("change", () => {
+    const file = imageInput.files[0];
 
-    const file = this.files[0];
-
-    if(file){
-
+    if (file) {
         previewImage.src = URL.createObjectURL(file);
-
     }
-
 });
 
-predictBtn.addEventListener("click", async ()=>{
+// Predict button
+predictBtn.addEventListener("click", async () => {
 
-    if(imageInput.files.length===0){
-
-        alert("Select Image");
-
+    if (imageInput.files.length === 0) {
+        alert("Please select an image.");
         return;
-
     }
 
     const formData = new FormData();
-
     formData.append("file", imageInput.files[0]);
 
-    result.innerHTML="<h3>Predicting...</h3>";
+    result.innerHTML = "<h3>Predicting...</h3>";
+    outputImage.src = "";
 
     try {
 
-        const response = await fetch("https://sentinelai-a6aj.onrender.com/predict", {
-            method: "POST",
-            body: formData
-        });
+        const response = await fetch(
+            "https://sentinelai-a6aj.onrender.com/predict",
+            {
+                method: "POST",
+                body: formData
+            }
+        );
 
-        console.log(response);
+        if (!response.ok) {
+            throw new Error("Server Error: " + response.status);
+        }
 
         const data = await response.json();
 
         console.log(data);
 
+        // Show detected image
         outputImage.src = data.output_image + "?t=" + Date.now();
 
-        let html = "";
-
-        html += "<h2>Detection Result</h2>";
-        html += "<h3>Total Objects : " + data.total_detections + "</h3>";
-        html += "<ul>";
+        // Show detection results
+        let html = `
+            <h2>Detection Result</h2>
+            <h3>Total Objects : ${data.total_detections}</h3>
+            <ul>
+        `;
 
         data.detections.forEach(item => {
-            html += "<li>" + item.class + " : " + item.confidence + "</li>";
+            html += `<li>${item.class} : ${item.confidence}</li>`;
         });
 
         html += "</ul>";
 
         result.innerHTML = html;
 
-    } catch (err) {
+    } catch (error) {
 
-        console.error(err);
+        console.error("Fetch Error:", error);
 
         alert("Unable to connect to FastAPI Backend");
 
+        result.innerHTML = `
+            <h3 style="color:red;">
+                Failed to connect to backend.
+            </h3>
+        `;
     }
-    console.log(data);
-    console.log(data.output_image);
-
-    outputImage.src=data.output_image+"?t="+new Date().getTime();
-
-    let html="";
-
-    html+="<h2>Detection Result</h2>";
-
-    html+="<h3>Total Objects : "+data.total_detections+"</h3>";
-
-    html+="<ul>";
-
-    data.detections.forEach(item=>{
-
-        html+="<li>"+item.class+" : "+item.confidence+"</li>";
-
-    });
-
-    html+="</ul>";
-
-    result.innerHTML=html;
 
 });
