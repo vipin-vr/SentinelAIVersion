@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+
+dataset/
+results/
+uploads/
+
+*.jpg
+*.jpeg
+*.png
+*.webp
+
+yolo11n.pt
+
+runs/detect/runs/sentinel_ai/weights/last.pt
