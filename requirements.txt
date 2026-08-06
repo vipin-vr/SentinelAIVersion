@@ -1,8 +1,8 @@
 fastapi
 uvicorn[standard]
 python-multipart
-ultralytics
-opencv-python-headless
+ultralytics==8.3.0
+opencv-python-headless==4.10.0.84
 pillow
 numpy
 torch
