@@ -1,8 +1,7 @@
-import os
 import shutil
 from pathlib import Path
 
-from fastapi import FastAPI, UploadFile, File
+from fastapi import FastAPI, UploadFile, File, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from ultralytics import YOLO
@@ -17,18 +16,26 @@ app = FastAPI()
 # -----------------------------------
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],      # Allow Live Server, localhost, Render, etc.
+    allow_origins=["*"],
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 # -----------------------------------
-# Paths
+# Project Paths
 # -----------------------------------
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-MODEL_PATH = BASE_DIR / "runs" / "detect" / "runs" / "sentinel_ai" / "weights" / "best.pt"
+MODEL_PATH = (
+    BASE_DIR
+    / "runs"
+    / "detect"
+    / "runs"
+    / "sentinel_ai"
+    / "weights"
+    / "best.pt"
+)
 
 UPLOAD_DIR = BASE_DIR / "uploads"
 RESULTS_DIR = BASE_DIR / "results"
@@ -37,12 +44,12 @@ UPLOAD_DIR.mkdir(exist_ok=True)
 RESULTS_DIR.mkdir(exist_ok=True)
 
 # -----------------------------------
-# Load Model
+# Load YOLO Model
 # -----------------------------------
 model = YOLO(str(MODEL_PATH))
 
 # -----------------------------------
-# Serve result images
+# Serve Result Images
 # -----------------------------------
 app.mount("/results", StaticFiles(directory=str(RESULTS_DIR)), name="results")
 
@@ -55,7 +62,7 @@ def home():
 
 
 @app.post("/predict")
-async def predict(file: UploadFile = File(...)):
+async def predict(request: Request, file: UploadFile = File(...)):
 
     filename = file.filename
 
@@ -75,7 +82,6 @@ async def predict(file: UploadFile = File(...)):
     )
 
     detections = []
-
     output_image_url = ""
 
     for result in results:
@@ -86,9 +92,13 @@ async def predict(file: UploadFile = File(...)):
 
         shutil.copy(output_image, destination)
 
-        output_image_url = f"http://127.0.0.1:8000/results/{filename}"
+        # Dynamic URL (works locally and after deployment)
+        output_image_url = str(
+            request.base_url
+        ) + f"results/{filename}"
 
         for box in result.boxes:
+
             detections.append({
                 "class": model.names[int(box.cls[0])],
                 "confidence": round(float(box.conf[0]), 2)

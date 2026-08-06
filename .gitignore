@@ -1,15 +1,22 @@
+# Python
 __pycache__/
 *.pyc
 
+# Dataset
 dataset/
-results/
-uploads/
 
+# Runtime folders
+uploads/
+results/
+
+# Test images
 *.jpg
 *.jpeg
 *.png
 *.webp
 
+# Pretrained YOLO model (not needed)
 yolo11n.pt
 
+# Ignore only the last checkpoint
 runs/detect/runs/sentinel_ai/weights/last.pt
