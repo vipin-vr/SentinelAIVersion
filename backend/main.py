@@ -92,7 +92,6 @@ async def predict(request: Request, file: UploadFile = File(...)):
 
         shutil.copy(output_image, destination)
 
-        # Dynamic URL (works locally and on Railway)
         output_image_url = f"{request.base_url}results/{filename}"
 
         for box in result.boxes:
@@ -102,8 +101,23 @@ async def predict(request: Request, file: UploadFile = File(...)):
                 "confidence": round(float(box.conf[0]), 2)
             })
 
+    # -------------------------------
+    # Quick Hackathon Validation
+    # -------------------------------
+    if len(detections) == 0:
+
+        return {
+            "success": True,
+            "isRoad": False,
+            "message": "Please upload a road or public infrastructure image.",
+            "total_detections": 0,
+            "detections": [],
+            "output_image": output_image_url
+        }
+
     return {
         "success": True,
+        "isRoad": True,
         "total_detections": len(detections),
         "detections": detections,
         "output_image": output_image_url

@@ -7,7 +7,7 @@ const result = document.getElementById("result");
 // Railway Backend URL
 const API_URL = "https://sentinelaiversion-production.up.railway.app/predict";
 
-// Preview selected image
+// Preview Image
 imageInput.addEventListener("change", function () {
 
     const file = this.files[0];
@@ -18,7 +18,7 @@ imageInput.addEventListener("change", function () {
 
 });
 
-// Predict button
+// Predict
 predictBtn.addEventListener("click", async () => {
 
     if (imageInput.files.length === 0) {
@@ -46,10 +46,47 @@ predictBtn.addEventListener("click", async () => {
 
         console.log(data);
 
-        // Display output image
+        // -----------------------------
+        // Invalid Image
+        // -----------------------------
+        if (data.isRoad === false) {
+
+            outputImage.src = "";
+
+            result.innerHTML = `
+                <div style="
+                    background:#ffebee;
+                    color:#b71c1c;
+                    padding:20px;
+                    border-radius:12px;
+                    border:2px solid red;
+                    margin-top:20px;
+                    text-align:center;
+                ">
+                    <h2>❌ Invalid Image</h2>
+
+                    <p>Please upload a road or public infrastructure image.</p>
+
+                    <h3>Supported Images</h3>
+
+                    <ul style="list-style:none;padding:0;">
+                        <li>✅ Road</li>
+                        <li>✅ Highway</li>
+                        <li>✅ Street</li>
+                        <li>✅ Bridge</li>
+                        <li>✅ Public Infrastructure</li>
+                    </ul>
+                </div>
+            `;
+
+            return;
+        }
+
+        // -----------------------------
+        // Valid Prediction
+        // -----------------------------
         outputImage.src = data.output_image + "?t=" + Date.now();
 
-        // Display detection results
         let html = "";
 
         html += "<h2>Detection Result</h2>";
