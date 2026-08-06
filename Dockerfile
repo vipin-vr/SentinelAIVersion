@@ -12,10 +12,13 @@ RUN apt-get update && apt-get install -y \
     libxcb1 \
     && rm -rf /var/lib/apt/lists/*
 
-COPY backend/requirements.txt .
+# Copy requirements from project root
+COPY requirements.txt .
 
+# Install Python packages
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Copy the whole project
 COPY . .
 
 EXPOSE 8000
