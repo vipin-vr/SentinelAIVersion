@@ -4,49 +4,52 @@ const outputImage = document.getElementById("outputImage");
 const predictBtn = document.getElementById("predictBtn");
 const result = document.getElementById("result");
 
+// Railway Backend URL
+const API_URL = "https://sentinelaiversion-production.up.railway.app/predict";
+
+// Preview selected image
 imageInput.addEventListener("change", function () {
 
     const file = this.files[0];
 
-    if(file){
-
+    if (file) {
         previewImage.src = URL.createObjectURL(file);
-
     }
 
 });
 
-predictBtn.addEventListener("click", async ()=>{
+// Predict button
+predictBtn.addEventListener("click", async () => {
 
-    if(imageInput.files.length===0){
-
-        alert("Select Image");
-
+    if (imageInput.files.length === 0) {
+        alert("Please select an image.");
         return;
-
     }
 
     const formData = new FormData();
-
     formData.append("file", imageInput.files[0]);
 
-    result.innerHTML="<h3>Predicting...</h3>";
+    result.innerHTML = "<h3>Predicting...</h3>";
 
     try {
 
-        const response = await fetch("http://127.0.0.1:8000/predict", {
+        const response = await fetch(API_URL, {
             method: "POST",
             body: formData
         });
 
-        console.log(response);
+        if (!response.ok) {
+            throw new Error("Prediction failed");
+        }
 
         const data = await response.json();
 
         console.log(data);
 
+        // Display output image
         outputImage.src = data.output_image + "?t=" + Date.now();
 
+        // Display detection results
         let html = "";
 
         html += "<h2>Detection Result</h2>";
@@ -54,41 +57,20 @@ predictBtn.addEventListener("click", async ()=>{
         html += "<ul>";
 
         data.detections.forEach(item => {
-            html += "<li>" + item.class + " : " + item.confidence + "</li>";
+            html += `<li>${item.class} : ${item.confidence}</li>`;
         });
 
         html += "</ul>";
 
         result.innerHTML = html;
 
-    } catch (err) {
+    }
+    catch (err) {
 
         console.error(err);
 
-        alert("Unable to connect to FastAPI Backend");
+        alert("Unable to connect to Sentinel AI Backend.");
 
     }
-    console.log(data);
-    console.log(data.output_image);
-
-    outputImage.src=data.output_image+"?t="+new Date().getTime();
-
-    let html="";
-
-    html+="<h2>Detection Result</h2>";
-
-    html+="<h3>Total Objects : "+data.total_detections+"</h3>";
-
-    html+="<ul>";
-
-    data.detections.forEach(item=>{
-
-        html+="<li>"+item.class+" : "+item.confidence+"</li>";
-
-    });
-
-    html+="</ul>";
-
-    result.innerHTML=html;
 
 });

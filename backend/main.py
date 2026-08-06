@@ -44,7 +44,7 @@ UPLOAD_DIR.mkdir(exist_ok=True)
 RESULTS_DIR.mkdir(exist_ok=True)
 
 # -----------------------------------
-# Load YOLO Model
+# Load Model
 # -----------------------------------
 model = YOLO(str(MODEL_PATH))
 
@@ -92,10 +92,8 @@ async def predict(request: Request, file: UploadFile = File(...)):
 
         shutil.copy(output_image, destination)
 
-        # Dynamic URL (works locally and after deployment)
-        output_image_url = str(
-            request.base_url
-        ) + f"results/{filename}"
+        # Dynamic URL (works locally and on Railway)
+        output_image_url = f"{request.base_url}results/{filename}"
 
         for box in result.boxes:
 
