@@ -1,372 +1,102 @@
+import os
 import shutil
-import traceback
 from pathlib import Path
 
-from fastapi import FastAPI, UploadFile, File, Request
+from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from ultralytics import YOLO
 
-
-# ----------------------------------------
+# -----------------------------------
 # FastAPI
-# ----------------------------------------
+# -----------------------------------
+app = FastAPI()
 
-app = FastAPI(
-    title="SentinelAI API",
-    version="1.0"
-)
-
-
-# ----------------------------------------
-# CORS
-# ----------------------------------------
-
+# -----------------------------------
+# Enable CORS
+# -----------------------------------
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"],      # Allow Live Server, localhost, Render, etc.
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-
-# ----------------------------------------
+# -----------------------------------
 # Paths
-# ----------------------------------------
-
+# -----------------------------------
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-
-MODEL_PATH = (
-    BASE_DIR
-    / "runs"
-    / "detect"
-    / "runs"
-    / "sentinel_ai"
-    / "weights"
-    / "best.pt"
-)
-
+MODEL_PATH = BASE_DIR / "runs" / "detect" / "runs" / "sentinel_ai" / "weights" / "best.pt"
 
 UPLOAD_DIR = BASE_DIR / "uploads"
-
 RESULTS_DIR = BASE_DIR / "results"
 
-
 UPLOAD_DIR.mkdir(exist_ok=True)
-
 RESULTS_DIR.mkdir(exist_ok=True)
 
-
-
-# ----------------------------------------
-# Load YOLO Model
-# ----------------------------------------
-
-print("===============================")
-print("Loading YOLO Model")
-print("Model Path:", MODEL_PATH)
-
-
-if not MODEL_PATH.exists():
-
-    raise FileNotFoundError(
-        f"Model not found: {MODEL_PATH}"
-    )
-
-
+# -----------------------------------
+# Load Model
+# -----------------------------------
 model = YOLO(str(MODEL_PATH))
 
+# -----------------------------------
+# Serve result images
+# -----------------------------------
+app.mount("/results", StaticFiles(directory=str(RESULTS_DIR)), name="results")
 
-print("Model Loaded Successfully!")
-
-print("Classes:", model.names)
-
-print("===============================")
-
-
-
-
-# ----------------------------------------
-# Serve Result Images
-# ----------------------------------------
-
-app.mount(
-    "/results",
-    StaticFiles(directory=str(RESULTS_DIR)),
-    name="results"
-)
-
-
-
-
-# ----------------------------------------
-# Home
-# ----------------------------------------
 
 @app.get("/")
 def home():
-
     return {
         "message": "Sentinel AI Backend Running"
     }
 
 
-
-
-# ----------------------------------------
-# Prediction API
-# ----------------------------------------
-
 @app.post("/predict")
-async def predict(
-    request: Request,
-    file: UploadFile = File(...)
-):
+async def predict(file: UploadFile = File(...)):
 
-    try:
+    filename = file.filename
 
-        filename = file.filename
+    upload_path = UPLOAD_DIR / filename
 
+    with open(upload_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
 
-        upload_path = UPLOAD_DIR / filename
+    results = model.predict(
+        source=str(upload_path),
+        conf=0.05,
+        imgsz=640,
+        iou=0.45,
+        augment=True,
+        save=True,
+        verbose=False
+    )
 
+    detections = []
 
-        # Save uploaded image
+    output_image_url = ""
 
-        with open(upload_path, "wb") as buffer:
+    for result in results:
 
-            shutil.copyfileobj(
-                file.file,
-                buffer
-            )
+        output_image = Path(result.save_dir) / filename
 
+        destination = RESULTS_DIR / filename
 
-        print("\n===============================")
+        shutil.copy(output_image, destination)
 
-        print("Uploaded File:", upload_path)
+        output_image_url = f"http://127.0.0.1:8000/results/{filename}"
 
+        for box in result.boxes:
+            detections.append({
+                "class": model.names[int(box.cls[0])],
+                "confidence": round(float(box.conf[0]), 2)
+            })
 
-
-        # ----------------------------------------
-        # YOLO Prediction
-        # ----------------------------------------
-
-        results = model.predict(
-
-            source=str(upload_path),
-
-            conf=0.10,
-
-            imgsz=640,
-
-            iou=0.45,
-
-            augment=False,
-
-            save=True,
-
-            verbose=False
-
-        )
-
-
-
-        detections = []
-
-        output_image_url = ""
-
-
-
-        # ----------------------------------------
-        # Process Results
-        # ----------------------------------------
-
-        for result in results:
-
-
-            print(
-                "YOLO Save Directory:",
-                result.save_dir
-            )
-
-
-            output_image = (
-                Path(result.save_dir)
-                / filename
-            )
-
-
-            destination = (
-                RESULTS_DIR
-                / filename
-            )
-
-
-
-            print(
-                "YOLO Output Image:",
-                output_image
-            )
-
-
-            print(
-                "Destination:",
-                destination
-            )
-
-
-            print(
-                "Output Exists:",
-                output_image.exists()
-            )
-
-
-
-            # Copy YOLO output image
-
-            if output_image.exists():
-
-                shutil.copy(
-                    output_image,
-                    destination
-                )
-
-                print(
-                    "Image Copied Successfully"
-                )
-
-            else:
-
-                print(
-                    "ERROR: Output image missing"
-                )
-
-
-
-            print(
-                "Destination Exists:",
-                destination.exists()
-            )
-
-
-
-            output_image_url = (
-                str(request.base_url)
-                + f"results/{filename}"
-            )
-
-
-
-            # Detection details
-
-            print(
-                "Number of boxes:",
-                len(result.boxes)
-            )
-
-
-
-            for box in result.boxes:
-
-
-                class_id = int(
-                    box.cls[0]
-                )
-
-
-                confidence = float(
-                    box.conf[0]
-                )
-
-
-
-                class_name = (
-                    model.names[class_id]
-                )
-
-
-
-                print(
-                    "Detected:",
-                    class_name,
-                    "Confidence:",
-                    confidence
-                )
-
-
-
-                detections.append(
-
-                    {
-                        "class": class_name,
-
-                        "confidence":
-                            round(
-                                confidence,
-                                2
-                            )
-                    }
-
-                )
-
-
-
-        # Remove uploaded file
-
-        if upload_path.exists():
-
-            upload_path.unlink()
-
-
-
-        print(
-            "Total detections:",
-            len(detections)
-        )
-
-
-        print(
-            "Output URL:",
-            output_image_url
-        )
-
-
-        print("===============================\n")
-
-
-
-        return {
-
-            "success": True,
-
-            "total_detections":
-                len(detections),
-
-            "detections":
-                detections,
-
-            "output_image":
-                output_image_url
-
-        }
-
-
-
-    except Exception:
-
-
-        print(
-            traceback.format_exc()
-        )
-
-
-        return {
-
-            "success": False,
-
-            "error":
-                traceback.format_exc()
-
-        }
+    return {
+        "success": True,
+        "total_detections": len(detections),
+        "detections": detections,
+        "output_image": output_image_url
+    }
