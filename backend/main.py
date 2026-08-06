@@ -73,7 +73,7 @@ async def predict(request: Request, file: UploadFile = File(...)):
 
     results = model.predict(
         source=str(upload_path),
-        conf=0.01,
+        conf=0.02,
         imgsz=640,
         iou=0.45,
         augment=True,
